@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Customer Similarity Engine Query</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body class="bg-gray-900 min-h-screen">
+    <div class="max-w-6xl mx-auto py-8 px-4">
+
+        <!-- Generation Panel -->
+        <details open class="mb-6 bg-gray-800 rounded-lg shadow overflow-hidden">
+            <summary class="cursor-pointer px-6 py-4 text-blue-300 font-bold text-lg select-none flex items-center gap-2 hover:bg-gray-700 transition-colors">
+                <span>⚡</span> Data Generation
+            </summary>
+            <div class="p-6">
+                <!-- Stats row -->
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="bg-gray-700 rounded-lg p-4 text-center">
+                        <div id="stat-customers" class="text-3xl font-bold text-blue-300">—</div>
+                        <div class="text-gray-400 text-sm mt-1">Total Customers</div>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4 text-center">
+                        <div id="stat-transactions" class="text-3xl font-bold text-purple-300">—</div>
+                        <div class="text-gray-400 text-sm mt-1">Total Transactions</div>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4 text-center">
+                        <div id="stat-txns-pm" class="text-3xl font-bold text-green-300">—</div>
+                        <div class="text-gray-400 text-sm mt-1">Avg Txns / Customer / Month</div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between mb-4">
+                    <span id="stat-last-updated" class="text-gray-500 text-xs">Last updated: never</span>
+                    <button onclick="pollStats()" class="text-xs text-blue-400 hover:text-blue-200 underline">↻ Refresh now</button>
+                </div>
+                <!-- Status bar -->
+                <div id="gen-status-bar" class="hidden mb-4 rounded-lg px-4 py-2 text-sm font-medium"></div>
+                <!-- Generation controls -->
+                <form id="generate-form" class="flex flex-wrap gap-4 items-end">
+                    <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold text-gray-200">Customers</label>
+                        <input type="number" id="gen-customers" value="1000" min="1" class="border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100 w-28">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold text-gray-200">Months</label>
+                        <input type="number" id="gen-months" value="12" min="1" class="border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100 w-20">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold text-gray-200">Txns / Month</label>
+                        <input type="number" id="gen-txns" value="15" min="1" class="border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100 w-24">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold text-gray-200">Start Month</label>
+                        <input type="text" id="gen-start" value="2024-01" class="border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100 w-28">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="mb-1 text-sm font-semibold text-gray-200">Seed</label>
+                        <input type="number" id="gen-seed" value="42" class="border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100 w-20">
+                    </div>
+                    <button type="submit" id="gen-btn" class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded">Generate</button>
+                </form>
+            </div>
+        </details>
+        <div class="form-section mb-8 bg-gray-800 p-6 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-4 text-blue-300">Find Similar (with Dissimilar Categories)</h2>
+            <form id="similarity-form" class="flex flex-wrap gap-4 items-end">
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Reference Customer ID</label>
+                    <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" value="CUST-000001">
+                </div>
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Period</label>
+                    <input type="text" id="simPeriod" placeholder="e.g. 2025-Q1" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" value="2024-Q1">
+                </div>
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Similar Categories</label>
+                    <input type="text" id="simCategories" placeholder="e.g. Tech" class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" value="Electronics,Subscriptions">
+                </div>
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Dissimilar Categories</label>
+                    <input type="text" id="dissimCategories" placeholder="e.g. Travel" class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" value="Clothing">
+                </div>
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Dissimilar Weight</label>
+                    <input type="number" id="dissimWeight" value="1.5" step="0.1" class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100">
+                </div>
+                <div class="flex flex-col">
+                    <label class="mb-1 font-semibold text-gray-200">Result Limit</label>
+                    <input type="number" id="simLimit" value="30" min="1" class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100">
+                </div>
+                <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded">Find</button>
+            </form>
+        </div>
+        <details id="sphere-details" open class="mb-4 bg-gray-800 rounded-lg shadow overflow-hidden">
+            <summary class="cursor-pointer px-6 py-4 text-blue-300 font-bold text-lg select-none flex items-center gap-2 hover:bg-gray-700 transition-colors">
+                <span id="sphere-toggle-icon">▾</span> Similarity Sphere
+            </summary>
+            <div class="p-4">
+                <div id="sphere-container" class="w-full flex justify-center"></div>
+                <div class="flex justify-center items-center gap-3 mt-4">
+                    <span class="text-gray-400 text-xs">Similar</span>
+                    <div style="width:200px;height:12px;border-radius:6px;background:linear-gradient(to right,#22c55e,#eab308,#ef4444)"></div>
+                    <span class="text-gray-400 text-xs">Dissimilar</span>
+                </div>
+            </div>
+        </details>
+    </div>
+    <script>
+        // ── Stats polling ────────────────────────────────────────────────
+        function fmt(n) {
+            if (n === undefined || n === null) return '—';
+            return Number(n).toLocaleString();
+        }
+        function fmtDuration(secs) {
+            if (!secs && secs !== 0) return '';
+            const m = Math.floor(secs / 60);
+            const s = secs % 60;
+            return m > 0 ? `${m}m ${s}s` : `${s}s`;
+        }
+
+        let clientTickerInterval = null;
+        let clientElapsedBase = 0;   // elapsed seconds from server at last poll
+        let clientTickStart  = 0;   // Date.now() when we received that value
+
+        function startClientTicker(elapsedSeconds) {
+            clientElapsedBase = elapsedSeconds;
+            clientTickStart   = Date.now();
+            if (clientTickerInterval) clearInterval(clientTickerInterval);
+            clientTickerInterval = setInterval(() => {
+                const genStatusBar = document.getElementById('gen-status-bar');
+                if (!genStatusBar) return;
+                const live = clientElapsedBase + Math.floor((Date.now() - clientTickStart) / 1000);
+                genStatusBar.textContent = `⚙ Running… ${fmtDuration(live)}`;
+            }, 1000);
+        }
+
+        function stopClientTicker() {
+            if (clientTickerInterval) {
+                clearInterval(clientTickerInterval);
+                clientTickerInterval = null;
+            }
+        }
+
+        async function pollStats() {
+            const statCustomers    = document.getElementById('stat-customers');
+            const statTransactions = document.getElementById('stat-transactions');
+            const statTxnsPm       = document.getElementById('stat-txns-pm');
+            const genStatusBar     = document.getElementById('gen-status-bar');
+            const genBtn           = document.getElementById('gen-btn');
+            const lastUpdated      = document.getElementById('stat-last-updated');
+
+            try {
+                const res = await fetch('/api/stats');
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    statCustomers.textContent    = '!';
+                    statTransactions.textContent = '!';
+                    statTxnsPm.textContent       = '!';
+                    genStatusBar.classList.remove('hidden');
+                    genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-red-900 text-red-200';
+                    genStatusBar.textContent = '✖ Stats error ' + res.status + ': ' + (err.message || JSON.stringify(err));
+                    if (lastUpdated) lastUpdated.textContent = 'Last updated: failed at ' + new Date().toLocaleTimeString();
+                    return;
+                }
+                const data = await res.json();
+                statCustomers.textContent    = fmt(data.totalCustomers);
+                statTransactions.textContent = fmt(data.totalTransactions);
+                statTxnsPm.textContent       = data.avgTxnsPerCustomerPerMonth ?? '—';
+                if (lastUpdated) lastUpdated.textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+
+                const status = data.generationStatus || 'idle';
+                const elapsed = data.elapsedSeconds ?? null;
+                if (status === 'idle') {
+                    stopClientTicker();
+                    genStatusBar.classList.add('hidden');
+                    genBtn.disabled = false;
+                    genBtn.textContent = 'Generate';
+                    genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
+                } else if (status === 'completed') {
+                    stopClientTicker();
+                    genStatusBar.classList.remove('hidden');
+                    genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-green-900 text-green-200';
+                    genStatusBar.textContent = `✔ Completed in ${fmtDuration(elapsed)}`;
+                    genBtn.disabled = false;
+                    genBtn.textContent = 'Generate';
+                    genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
+                } else if (status.startsWith('error')) {
+                    stopClientTicker();
+                    genStatusBar.classList.remove('hidden');
+                    genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-red-900 text-red-200';
+                    genStatusBar.textContent = '✖ ' + status;
+                    genBtn.disabled = false;
+                    genBtn.textContent = 'Generate';
+                    genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
+                } else {
+                    // running — start/update client-side ticker
+                    startClientTicker(elapsed ?? 0);
+                    genStatusBar.classList.remove('hidden');
+                    genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-blue-900 text-blue-200';
+                    genBtn.disabled = true;
+                    genBtn.textContent = 'Generating…';
+                    genBtn.className = 'bg-gray-600 text-gray-300 font-semibold px-4 py-2 rounded cursor-not-allowed';
+                }
+            } catch (err) {
+                const statCustomers    = document.getElementById('stat-customers');
+                const statTransactions = document.getElementById('stat-transactions');
+                const statTxnsPm       = document.getElementById('stat-txns-pm');
+                const genStatusBar     = document.getElementById('gen-status-bar');
+                statCustomers.textContent    = '—';
+                statTransactions.textContent = '—';
+                statTxnsPm.textContent       = '—';
+                genStatusBar.classList.remove('hidden');
+                genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-yellow-900 text-yellow-200';
+                genStatusBar.textContent = '⚠ Could not reach API: ' + err.message;
+                if (lastUpdated) lastUpdated.textContent = 'Last updated: failed at ' + new Date().toLocaleTimeString();
+            }
+        }
+
+        // Fire immediately on load, then every 15 seconds unconditionally
+        pollStats();
+        window._statsInterval = setInterval(pollStats, 15000);
+
+        // ── Generate form ────────────────────────────────────────────────
+        document.getElementById('generate-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const genBtn = document.getElementById('gen-btn');
+            const genStatusBar = document.getElementById('gen-status-bar');
+            if (genBtn.disabled) return;
+            const body = {
+                customers:    parseInt(document.getElementById('gen-customers').value),
+                months:       parseInt(document.getElementById('gen-months').value),
+                txnsPerMonth: parseInt(document.getElementById('gen-txns').value),
+                startMonth:   document.getElementById('gen-start').value,
+                seed:         parseInt(document.getElementById('gen-seed').value)
+            };
+            const res = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                genStatusBar.classList.remove('hidden');
+                genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-red-900 text-red-200';
+                genStatusBar.textContent = '✖ ' + (err.error || 'Failed to start generation');
+            } else {
+                genStatusBar.classList.remove('hidden');
+                genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-blue-900 text-blue-200 animate-pulse';
+                genStatusBar.textContent = '⚙ Generation started…';
+                pollStats();
+            }
+        });
+        // Toggle arrow icon on expand/collapse
+        const sphereDetails = document.getElementById('sphere-details');
+        const sphereToggleIcon = document.getElementById('sphere-toggle-icon');
+        let lastData = null;
+        sphereDetails.addEventListener('toggle', () => {
+            sphereToggleIcon.textContent = sphereDetails.open ? '▾' : '▸';
+            // Re-render when re-opened so SVG fills correct width
+            if (sphereDetails.open && lastData) renderSphere(lastData);
+        });
+
+        let lastSimilarityData = null;
+        const simForm = document.getElementById('similarity-form');
+        const sphereContainer = document.getElementById('sphere-container');
+        if (simForm) {
+            simForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const customerId = document.getElementById('simCustomerId').value;
+                const period = document.getElementById('simPeriod').value;
+                const simCats = document.getElementById('simCategories').value;
+                const dissimCats = document.getElementById('dissimCategories').value;
+                const dissimWeight = document.getElementById('dissimWeight').value;
+                const limit = document.getElementById('simLimit').value;
+                const params = new URLSearchParams({
+                    customerId,
+                    period,
+                    similarCategories: simCats,
+                    dissimilarCategories: dissimCats,
+                    dissimilarWeight: dissimWeight,
+                    limit
+                });
+                const res = await fetch(`/api/similarity/find-different?${params.toString()}`);
+                if (!res.ok) {
+                    sphereContainer.innerHTML = '<p style="color:red">Failed to fetch similarity results</p>';
+                    return;
+                }
+                const data = await res.json();
+                lastData = data;
+                renderSphere(data);
+            });
+        }
+        function renderSphere(data) {
+            sphereContainer.innerHTML = '';
+            // Fill the container width
+            const width = sphereContainer.clientWidth || 800;
+            const height = width;
+            const center = width / 2;
+            const svg = d3.select(sphereContainer)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .attr('viewBox', `0 0 ${width} ${height}`)
+                .style('max-width', '100%');
+            svg.append('circle')
+                .attr('cx', center)
+                .attr('cy', center)
+                .attr('r', 36)
+                .attr('fill', '#2563eb');
+            svg.append('text')
+                .attr('x', center)
+                .attr('y', center + 5)
+                .attr('text-anchor', 'middle')
+                .attr('fill', 'white')
+                .attr('font-size', 13)
+                .attr('font-weight', 'bold')
+                .text(data.referenceCustomer || 'REF');
+            const results = data.results || [];
+            if (!results.length) return;
+            if (results.length < 3) {
+                sphereContainer.insertAdjacentHTML('afterbegin', '<div class="text-yellow-700 bg-yellow-100 rounded px-3 py-1 mb-2 text-center">Warning: Only ' + results.length + ' result(s) returned. Try adjusting your query or generating more data.</div>');
+            }
+            const minSim = d3.min(results, d => d.overallSimilarity);
+            const maxSim = d3.max(results, d => d.overallSimilarity);
+            const minDist = d3.min(results, d => d.overallDistance);
+            const maxDist = d3.max(results, d => d.overallDistance);
+            // Scale radii relative to container size — closer similarity = nearer centre
+            const rMin = width * 0.15;
+            const rMax = width * 0.42;
+            const angleStep = 2 * Math.PI / results.length;
+            const allSameSim = results.every(d => d.overallSimilarity === results[0].overallSimilarity);
+            // Color scale: green (similar) → red (dissimilar) using cosine similarity
+            const colorScale = d3.scaleSequential()
+                .domain([maxSim, minSim])   // reversed: high similarity = green
+                .interpolator(d3.interpolateRgb('#22c55e', '#ef4444'));
+
+            // Shared tooltip element
+            const tooltip = svg.append('text')
+                .attr('id', 'sphere-tooltip')
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#fbbf24')
+                .attr('font-size', 13)
+                .attr('font-weight', 'bold')
+                .attr('pointer-events', 'none')
+                .style('opacity', 0);
+
+            results.forEach((d, i) => {
+                // Higher similarity = closer to centre (smaller r)
+                let r;
+                if (!allSameSim && maxSim > minSim) {
+                    r = rMax - (d.overallSimilarity - minSim) / (maxSim - minSim) * (rMax - rMin);
+                } else {
+                    r = (rMin + rMax) / 2;
+                }
+                const angle = i * angleStep;
+                const x = center + r * Math.cos(angle);
+                const y = center + r * Math.sin(angle);
+                const nodeColor = allSameSim ? '#eab308' : colorScale(d.overallSimilarity);
+                const nodeColorHover = d3.color(nodeColor).brighter(0.5).toString();
+                svg.append('line')
+                    .attr('x1', center)
+                    .attr('y1', center)
+                    .attr('x2', x)
+                    .attr('y2', y)
+                    .attr('stroke', nodeColor)
+                    .attr('stroke-opacity', 0.4)
+                    .attr('stroke-dasharray', '2,2');
+                // Pin shape: circle head + downward point
+                // The pin tip points toward the center
+                const pinR = 8;      // head radius
+                const pinH = 14;     // total height of pin below head
+                // Angle from node toward center for pin direction
+                const pinAngle = Math.atan2(center - y, center - x);
+                const tipX = x + Math.cos(pinAngle) * (pinR + pinH);
+                const tipY = y + Math.sin(pinAngle) * (pinR + pinH);
+                // Pin path: teardrop = circle head + triangle tip
+                const perpX = -Math.sin(pinAngle) * pinR * 0.55;
+                const perpY =  Math.cos(pinAngle) * pinR * 0.55;
+                const pinPath = `M ${x + perpX} ${y + perpY}
+                                 A ${pinR} ${pinR} 0 1 0 ${x - perpX} ${y - perpY}
+                                 L ${tipX} ${tipY} Z`;
+
+                const g = svg.append('g')
+                    .attr('cursor', 'pointer')
+                    .on('mouseenter', function() {
+                        tooltip
+                            .attr('x', x)
+                            .attr('y', y - pinR - 8)
+                            .text(`${d.customerId} (sim: ${d.overallSimilarity.toFixed(3)})`)
+                            .style('opacity', 1);
+                        d3.select(this).select('path').attr('fill', nodeColorHover);
+                        // inner dot highlight
+                        d3.select(this).select('circle').attr('fill', 'rgba(255,255,255,0.5)');
+                    })
+                    .on('mouseleave', function() {
+                        tooltip.style('opacity', 0);
+                        d3.select(this).select('path').attr('fill', nodeColor);
+                        d3.select(this).select('circle').attr('fill', 'rgba(255,255,255,0.25)');
+                    })
+                    .on('click', function() {
+                        document.getElementById('simCustomerId').value = d.customerId;
+                        simForm.dispatchEvent(new Event('submit'));
+                    });
+                // Pin body
+                g.append('path')
+                    .attr('d', pinPath)
+                    .attr('fill', nodeColor)
+                    .attr('stroke', 'rgba(255,255,255,0.3)')
+                    .attr('stroke-width', 0.8);
+                // Small inner dot on pin head
+                g.append('circle')
+                    .attr('cx', x)
+                    .attr('cy', y)
+                    .attr('r', pinR * 0.35)
+                    .attr('fill', 'rgba(255,255,255,0.25)')
+                    .attr('pointer-events', 'none');
+
+
+            });
+            // Bring tooltip to front
+            tooltip.raise();
+        }
+    </script>
+</body>
+</html>

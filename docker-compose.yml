@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: similarity-postgres
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "work_mem=64MB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "max_connections=50"
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+        reservations:
+          memory: 512m
+    environment:
+      POSTGRES_DB: similarity
+      POSTGRES_USER: similarity
+      POSTGRES_PASSWORD: similarity
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U similarity -d similarity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: similarity-engine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "9096:9096"
+    deploy:
+      resources:
+        limits:
+          memory: 3g
+        reservations:
+          memory: 512m
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: similarity
+      DB_USER: similarity
+
+      DB_PASSWORD: similarity
+
+volumes:
+  pgdata:

@@ -1,0 +1,249 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-03-10T00:00:00.000Z",
+  "__export_source": "customer-similarity-engine",
+  "resources": [
+    {
+      "_id": "wrk_cse",
+      "parentId": null,
+      "_type": "workspace",
+      "name": "Customer Similarity Engine",
+      "description": "REST API for customer similarity scoring and search"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_cse",
+      "_type": "environment",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8080",
+        "customer_id": "CUST-000001",
+        "period": "2024-Q1"
+      }
+    },
+    {
+      "_id": "fld_health",
+      "parentId": "wrk_cse",
+      "_type": "request_group",
+      "name": "Health & Info"
+    },
+    {
+      "_id": "fld_generate",
+      "parentId": "wrk_cse",
+      "_type": "request_group",
+      "name": "Data Generation"
+    },
+    {
+      "_id": "fld_scoring",
+      "parentId": "wrk_cse",
+      "_type": "request_group",
+      "name": "Scoring"
+    },
+    {
+      "_id": "fld_customers",
+      "parentId": "wrk_cse",
+      "_type": "request_group",
+      "name": "Customer Data"
+    },
+    {
+      "_id": "fld_similarity",
+      "parentId": "wrk_cse",
+      "_type": "request_group",
+      "name": "Similarity Search"
+    },
+    {
+      "_id": "req_health",
+      "parentId": "fld_health",
+      "_type": "request",
+      "name": "Health Check",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/health",
+      "description": "Check if the API is running"
+    },
+    {
+      "_id": "req_categories",
+      "parentId": "fld_health",
+      "_type": "request",
+      "name": "List Categories",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/categories",
+      "description": "Get all known spending categories"
+    },
+    {
+      "_id": "req_generate_small",
+      "parentId": "fld_generate",
+      "_type": "request",
+      "name": "Generate Small Dataset (100 customers)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/generate",
+      "description": "Generate 100 customers × 12 months × ~15 txns/month. Quick test.",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customers\": 100,\n  \"months\": 12,\n  \"txnsPerMonth\": 15,\n  \"startMonth\": \"2024-01\",\n  \"seed\": 42\n}"
+      }
+    },
+    {
+      "_id": "req_generate_medium",
+      "parentId": "fld_generate",
+      "_type": "request",
+      "name": "Generate Medium Dataset (1,000 customers)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/generate",
+      "description": "Generate 1000 customers × 12 months × ~15 txns/month (~180k transactions).",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customers\": 1000,\n  \"months\": 12,\n  \"txnsPerMonth\": 15,\n  \"startMonth\": \"2024-01\",\n  \"seed\": 42\n}"
+      }
+    },
+    {
+      "_id": "req_generate_large",
+      "parentId": "fld_generate",
+      "_type": "request",
+      "name": "Generate Large Dataset (10,000 customers)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/generate",
+      "description": "Generate 10000 customers × 12 months × ~15 txns/month (~1.8M transactions). May take a few minutes.",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"customers\": 10000,\n  \"months\": 12,\n  \"txnsPerMonth\": 15,\n  \"startMonth\": \"2024-01\",\n  \"seed\": 42\n}"
+      }
+    },
+    {
+      "_id": "req_compute_monthly",
+      "parentId": "fld_scoring",
+      "_type": "request",
+      "name": "Recompute Monthly Scores",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/scoring/compute-monthly",
+      "description": "Recompute all monthly category scores from raw transactions"
+    },
+    {
+      "_id": "req_compute_agg_q1",
+      "parentId": "fld_scoring",
+      "_type": "request",
+      "name": "Compute Aggregated Scores (Q1 2024)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/scoring/compute-aggregated",
+      "description": "Compute aggregated scores for Q1 2024",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"periodLabel\": \"2024-Q1\",\n  \"fromMonth\": \"2024-01\",\n  \"toMonth\": \"2024-03\"\n}"
+      }
+    },
+    {
+      "_id": "req_compute_agg_q2",
+      "parentId": "fld_scoring",
+      "_type": "request",
+      "name": "Compute Aggregated Scores (Q2 2024)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/scoring/compute-aggregated",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"periodLabel\": \"2024-Q2\",\n  \"fromMonth\": \"2024-04\",\n  \"toMonth\": \"2024-06\"\n}"
+      }
+    },
+    {
+      "_id": "req_compute_agg_full_year",
+      "parentId": "fld_scoring",
+      "_type": "request",
+      "name": "Compute Aggregated Scores (Full Year 2024)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/api/scoring/compute-aggregated",
+      "headers": [
+        { "name": "Content-Type", "value": "application/json" }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"periodLabel\": \"2024\",\n  \"fromMonth\": \"2024-01\",\n  \"toMonth\": \"2024-12\"\n}"
+      }
+    },
+    {
+      "_id": "req_customers_page1",
+      "parentId": "fld_customers",
+      "_type": "request",
+      "name": "List Customers (Page 1)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/customers?page=1&size=20",
+      "description": "Paginated list of all customer IDs"
+    },
+    {
+      "_id": "req_monthly_scores",
+      "parentId": "fld_customers",
+      "_type": "request",
+      "name": "Monthly Scores for Customer",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/customers/{{ _.customer_id }}/scores/monthly",
+      "description": "Get all monthly category scores for a customer"
+    },
+    {
+      "_id": "req_agg_scores",
+      "parentId": "fld_customers",
+      "_type": "request",
+      "name": "Aggregated Scores for Customer (Q1)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/customers/{{ _.customer_id }}/scores/{{ _.period }}",
+      "description": "Get aggregated scores for a customer and period"
+    },
+    {
+      "_id": "req_profile",
+      "parentId": "fld_customers",
+      "_type": "request",
+      "name": "Customer Profile (category→score map)",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/customers/{{ _.customer_id }}/profile/{{ _.period }}",
+      "description": "Get the profile as a simple category→score map"
+    },
+    {
+      "_id": "req_find_similar",
+      "parentId": "fld_similarity",
+      "_type": "request",
+      "name": "Find Similar Customers",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/similarity/find?customerId={{ _.customer_id }}&period={{ _.period }}&categories=Groceries,Electronics&limit=10",
+      "description": "Find customers most similar in the specified categories"
+    },
+    {
+      "_id": "req_find_similar_food_dining",
+      "parentId": "fld_similarity",
+      "_type": "request",
+      "name": "Find Similar in Food Categories",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/similarity/find?customerId={{ _.customer_id }}&period={{ _.period }}&categories=Groceries,Dining&limit=10",
+      "description": "Find customers with similar grocery and dining spending patterns"
+    },
+    {
+      "_id": "req_find_different",
+      "parentId": "fld_similarity",
+      "_type": "request",
+      "name": "Similar in Groceries but Different in Travel",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/similarity/find-different?customerId={{ _.customer_id }}&period={{ _.period }}&similarCategories=Groceries,Dining&dissimilarCategories=Travel,Entertainment&dissimilarWeight=1.0&limit=10",
+      "description": "Find customers similar in food categories but with different travel/entertainment patterns"
+    },
+    {
+      "_id": "req_find_different_tech",
+      "parentId": "fld_similarity",
+      "_type": "request",
+      "name": "Similar in Tech but Different in Fashion",
+      "method": "GET",
+      "url": "{{ _.base_url }}/api/similarity/find-different?customerId={{ _.customer_id }}&period={{ _.period }}&similarCategories=Electronics,Subscriptions&dissimilarCategories=Clothing&dissimilarWeight=1.5&limit=10",
+      "description": "Find customers similar in tech spending but different in fashion. Higher dissimilar weight (1.5) means stronger preference for divergent fashion patterns."
+    }
+  ]
+}
