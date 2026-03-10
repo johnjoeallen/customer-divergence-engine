@@ -153,8 +153,9 @@ public class SimilarityEngine {
      * in {@code dissimilarCategories}.
      *
      * <p>The final ranking is:
-     * {@code combined = similarityDistance + dissimilarWeight × dissimilarDistance}.
-     * Higher combined score = better match (most dissimilar overall ranks first).</p>
+     * {@code combined = −similarityDistance + dissimilarWeight × dissimilarDistance}.
+     * Higher combined score = better match: small distance in similar categories
+     * and large distance in dissimilar categories ranks first.</p>
      *
      * @param referenceCustomerId   customer to compare against
      * @param period                time period
@@ -187,8 +188,8 @@ public class SimilarityEngine {
             SimilarityResult diffResult = compare(reference, other, dissimilarCategories);
             double diffDistance = diffResult.overallDistance();
 
-            // Combined: high sim distance + high diff distance → high score → better
-            double combined = simDistance + dissimilarWeight * diffDistance;
+            // Combined: low sim distance + high diff distance → high score → better
+            double combined = -simDistance + dissimilarWeight * diffDistance;
 
             // Merge category distances
             Map<String, Integer> allDists = new LinkedHashMap<>(simResult.categoryDistances());
