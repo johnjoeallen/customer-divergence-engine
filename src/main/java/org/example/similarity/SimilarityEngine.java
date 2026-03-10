@@ -122,7 +122,7 @@ public class SimilarityEngine {
      * @param period               the time period (month or aggregation label)
      * @param similarCategories    categories where similarity is desired
      * @param limit                max number of results to return
-     * @return sorted list of similarity results (most similar first)
+     * @return sorted list of similarity results (most dissimilar first)
      */
     public List<SimilarityResult> findSimilar(
             String referenceCustomerId,
@@ -140,8 +140,8 @@ public class SimilarityEngine {
             results.add(compare(reference, other, similarCategories));
         }
 
-        // Sort by distance ascending (most similar first)
-        results.sort(Comparator.comparingDouble(SimilarityResult::overallDistance));
+        // Sort by distance descending (most dissimilar first)
+        results.sort(Comparator.comparingDouble(SimilarityResult::overallDistance).reversed());
         if (results.size() > limit) {
             results = results.subList(0, limit);
         }
@@ -153,8 +153,8 @@ public class SimilarityEngine {
      * in {@code dissimilarCategories}.
      *
      * <p>The final ranking is:
-     * {@code combined = similarityDistance − dissimilarWeight × dissimilarDistance}.
-     * Lower combined score = better match.</p>
+     * {@code combined = similarityDistance + dissimilarWeight × dissimilarDistance}.
+     * Higher combined score = better match (most dissimilar overall ranks first).</p>
      *
      * @param referenceCustomerId   customer to compare against
      * @param period                time period
@@ -187,8 +187,8 @@ public class SimilarityEngine {
             SimilarityResult diffResult = compare(reference, other, dissimilarCategories);
             double diffDistance = diffResult.overallDistance();
 
-            // Combined: low sim distance, high diff distance → low score → better
-            double combined = simDistance - dissimilarWeight * diffDistance;
+            // Combined: high sim distance + high diff distance → high score → better
+            double combined = simDistance + dissimilarWeight * diffDistance;
 
             // Merge category distances
             Map<String, Integer> allDists = new LinkedHashMap<>(simResult.categoryDistances());
@@ -200,7 +200,7 @@ public class SimilarityEngine {
                     combined));
         }
 
-        candidates.sort(Comparator.comparingDouble(Candidate::combinedScore));
+        candidates.sort(Comparator.comparingDouble(Candidate::combinedScore).reversed());
         return candidates.stream()
                 .map(Candidate::result)
                 .limit(limit)
