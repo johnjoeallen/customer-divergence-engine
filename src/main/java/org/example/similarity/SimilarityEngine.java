@@ -11,16 +11,27 @@ import java.sql.SQLException;
 import java.util.*;
 
 /**
- * Finds customers who spend similarly to a reference customer in some categories,
- * but differently in others.
+ * Compares customers against a reference customer based on their category spending profiles,
+ * ranking them by how similar they are in some categories and how different they are in others.
  *
- * <p>For example: <em>"Find me customers who are similar to customer X in categories
- * A, B and C, but dissimilar in categories D and E."</em></p>
+ * <p>The core use case is: <em>"Find me customers who spend like customer X in categories
+ * A, B and C, but very differently in categories D and E."</em> This is useful for identifying
+ * customers who share the same base spending behaviour but diverge in specific areas —
+ * for example, two customers with identical grocery and utility habits but completely
+ * different travel or dining patterns.</p>
  *
- * <p>Similarity is measured using <strong>Euclidean distance</strong> (lower = more similar)
- * and a <strong>cosine similarity</strong> metric (higher = more similar).
- * The combined ranking rewards candidates with a <strong>small</strong> distance in the
- * similar categories and a <strong>large</strong> distance in the dissimilar categories.</p>
+ * <p>Similarity between two customers is measured using <strong>Euclidean distance</strong>
+ * across their category scores — the lower the distance, the more alike they are in those
+ * categories. A <strong>cosine similarity</strong> score is also computed to capture whether
+ * two customers spend in the same proportional shape, regardless of absolute amounts;
+ * this is returned alongside results as supplementary information.</p>
+ *
+ * <p>When both similar and dissimilar categories are provided, each candidate is scored as:
+ * <pre>  combined = −similarityDistance + dissimilarWeight × dissimilarDistance</pre>
+ * Candidates are ranked by this score descending — rewarding those who are
+ * <strong>close</strong> in the similar categories and <strong>far apart</strong>
+ * in the dissimilar categories. The {@code dissimilarWeight} parameter controls how strongly
+ * the dissimilar categories influence the final ranking relative to the similar ones.</p>
  */
 public class SimilarityEngine {
 
