@@ -11,12 +11,16 @@ import java.sql.SQLException;
 import java.util.*;
 
 /**
- * Finds similar customers based on their category score profiles.
+ * Finds customers who spend similarly to a reference customer in some categories,
+ * but differently in others.
+ *
+ * <p>For example: <em>"Find me customers who are similar to customer X in categories
+ * A, B and C, but dissimilar in categories D and E."</em></p>
  *
  * <p>Similarity is measured using <strong>Euclidean distance</strong> (lower = more similar)
  * and a <strong>cosine similarity</strong> metric (higher = more similar).
- * You can search for customers that are similar in a <em>subset</em> of categories,
- * optionally requiring that they differ in other categories.</p>
+ * The combined ranking rewards candidates with a <strong>small</strong> distance in the
+ * similar categories and a <strong>large</strong> distance in the dissimilar categories.</p>
  */
 public class SimilarityEngine {
 
