@@ -15,4 +15,3 @@ echo ""
 echo "✔ Build complete. App is running."
 echo "  → Open http://localhost:9096 in your browser."
 echo "  → Hard-refresh (Ctrl+Shift+R / Cmd+Shift+R) to bypass any browser cache."
-
