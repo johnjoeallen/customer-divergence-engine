@@ -188,6 +188,8 @@
                     genBtn.disabled = false;
                     genBtn.textContent = 'Generate';
                     genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
+                    document.getElementById('simCustomerId').value = '';
+                    loadFirstCustomer();
                 } else if (status.startsWith('error')) {
                     stopClientTicker();
                     setStatsPollingRate(false);
@@ -230,6 +232,22 @@
             clearInterval(_statsInterval);
             _statsInterval = setInterval(pollStats, fast ? 3000 : 15000);
         }
+
+        // Pre-fill reference customer with a real ID from the DB
+        async function loadFirstCustomer() {
+            const input = document.getElementById('simCustomerId');
+            if (input.value) return; // already filled (e.g. clicked a node)
+            try {
+                const res = await fetch('/api/customers?page=1&size=1');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.customers && data.customers.length > 0) {
+                    input.value = data.customers[0];
+                    input.placeholder = data.customers[0];
+                }
+            } catch (_) { /* silently ignore — field stays empty */ }
+        }
+        loadFirstCustomer();
 
         // ── Generate form ────────────────────────────────────────────────
         document.getElementById('generate-form').addEventListener('submit', async (e) => {
