@@ -205,39 +205,20 @@ public class ApiServer {
         long totalTransactions = 0;
         long totalCustomers = 0;
         long totalMonthlyScores = 0;
-        long totalQuarters = 0;
         try (var conn = db.getConnection();
              var stmt = conn.createStatement()) {
-            // Apply short timeout only for this stats connection
-            stmt.execute("SET LOCAL statement_timeout = '3s'");
-            // Single query — pg_stat_user_tables is always near-instant
-            try (var rs = stmt.executeQuery("""
-                    SELECT relname, n_live_tup
-                    FROM pg_stat_user_tables
-                    WHERE relname IN ('transaction', 'monthly_category_score', 'aggregated_category_score')
-                    """)) {
-                while (rs.next()) {
-                    switch (rs.getString("relname")) {
-                        case "transaction"              -> totalTransactions  = rs.getLong("n_live_tup");
-                        case "monthly_category_score"   -> totalMonthlyScores = rs.getLong("n_live_tup");
-                    }
-                }
+            stmt.execute("SET LOCAL statement_timeout = '10s'");
+            try (var rs = stmt.executeQuery("SELECT COUNT(*) FROM \"transaction\"")) {
+                if (rs.next()) totalTransactions = rs.getLong(1);
             }
-            // Count distinct quarters from aggregated_category_score — this table is small
-            try (var rs = stmt.executeQuery("""
-                    SELECT COUNT(DISTINCT period_label)
-                    FROM aggregated_category_score
-                    WHERE period_label ~ '^[0-9]{4}-Q'
-                    """)) {
-                if (rs.next()) totalQuarters = rs.getLong(1);
+            try (var rs = stmt.executeQuery("SELECT COUNT(DISTINCT customer_id) FROM \"transaction\"")) {
+                if (rs.next()) totalCustomers = rs.getLong(1);
+            }
+            try (var rs = stmt.executeQuery("SELECT COUNT(DISTINCT year_month) FROM monthly_category_score")) {
+                if (rs.next()) totalMonthlyScores = rs.getLong(1); // reusing var as month count
             }
         }
-        // Derive customer count: monthly_scores / 12 categories / 12 months
-        long months = totalQuarters * 3L;
-        long categories = 12L;
-        if (months > 0 && totalMonthlyScores > 0) {
-            totalCustomers = totalMonthlyScores / (categories * months);
-        }
+        long months = totalMonthlyScores; // distinct months
         double avgTxnsPM = (totalCustomers > 0 && months > 0)
                 ? (double) totalTransactions / (totalCustomers * months) : 0.0;
 
@@ -246,10 +227,8 @@ public class ApiServer {
         result.put("totalTransactions", totalTransactions);
         result.put("avgTxnsPerCustomerPerMonth", Math.round(avgTxnsPM * 10.0) / 10.0);
         result.put("generationStatus", generationStatus.get());
-        // Include elapsed time if generation is running or just completed
         if (generationStartedAt > 0) {
-            long elapsedMs = System.currentTimeMillis() - generationStartedAt;
-            result.put("elapsedSeconds", elapsedMs / 1000);
+            result.put("elapsedSeconds", (System.currentTimeMillis() - generationStartedAt) / 1000);
         }
         cachedStats = result;
         statsCachedAt = now;
