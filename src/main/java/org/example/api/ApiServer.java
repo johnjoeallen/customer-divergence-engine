@@ -57,16 +57,6 @@ public class ApiServer {
         this.app = Javalin.create(config -> {
             config.jsonMapper(new JavalinJackson(mapper, false));
             config.http.defaultContentType = "application/json";
-            config.staticFiles.add(staticFileConfig -> {
-                staticFileConfig.directory = "/public";
-                staticFileConfig.location = io.javalin.http.staticfiles.Location.CLASSPATH;
-                staticFileConfig.hostedPath = "/";
-                staticFileConfig.headers = Map.of(
-                        "Cache-Control", "no-cache, no-store, must-revalidate",
-                        "Pragma", "no-cache",
-                        "Expires", "0"
-                );
-            });
         });
         registerRoutes();
         app.start(port);
@@ -75,6 +65,10 @@ public class ApiServer {
         app.stop();
     }
     private void registerRoutes() {
+        // Serve index.html explicitly so no-cache headers are always applied
+        app.get("/", this::serveIndex);
+        app.get("/index.html", this::serveIndex);
+
         app.get("/api/health", ctx ->
                 ctx.json(Map.of("status", "UP", "timestamp", System.currentTimeMillis())));
         app.get("/api/stats", this::getStats);
@@ -94,6 +88,18 @@ public class ApiServer {
                 ctx.status(400).json(Map.of("error", "Bad request", "message", e.getMessage())));
     }
     // -- Handlers ---------------------------------------------------------
+    private void serveIndex(Context ctx) throws Exception {
+        try (var is = getClass().getResourceAsStream("/public/index.html")) {
+            if (is == null) { ctx.status(404).result("index.html not found"); return; }
+            String html = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            ctx.header("Cache-Control", "no-cache, no-store, must-revalidate");
+            ctx.header("Pragma", "no-cache");
+            ctx.header("Expires", "0");
+            ctx.contentType("text/html; charset=UTF-8");
+            ctx.result(html);
+        }
+    }
+
     private void getCategories(Context ctx) throws SQLException {
         ctx.json(Map.of("categories", txnDao.allCategories()));
     }
