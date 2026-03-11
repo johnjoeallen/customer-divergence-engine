@@ -8,12 +8,12 @@ docker rm -f similarity-engine similarity-postgres 2>/dev/null || true
 
 if [[ "$1" == "--clean" ]]; then
   echo "Removing database volume..."
-  docker-compose down -v --remove-orphans
+  docker compose down -v --remove-orphans
 else
-  docker-compose down --remove-orphans
+  docker compose down --remove-orphans
 fi
 
-docker-compose up -d --force-recreate
+docker compose up -d --force-recreate
 
 echo ""
 echo "✔ App is running at http://localhost:9096"

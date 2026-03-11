@@ -71,9 +71,9 @@
             <h2 class="text-xl font-bold mb-4 text-blue-300">Find diverging buying trends</h2>
             <form id="similarity-form" class="flex flex-wrap gap-4 items-end">
                 <div class="flex flex-col">
-                    <label class="mb-1 font-semibold text-gray-200">Reference Customer ID</label>
+                    <label class="mb-1 font-semibold text-gray-200">Reference Customer Name</label>
                     <div class="flex gap-1 items-center">
-                        <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" placeholder="e.g. 019571a2-...">
+                        <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" placeholder="e.g. Ava Grace Carter">
                         <button type="button" id="random-customer-btn" title="Pick a random customer" onclick="pickRandomCustomer()" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-lg leading-none">🎲</button>
                     </div>
                 </div>
@@ -240,7 +240,7 @@
             _statsInterval = setInterval(pollStats, fast ? 3000 : 15000);
         }
 
-        // Pre-fill reference customer with a real ID from the DB
+        // Pre-fill reference customer with a real customer name from the DB
         async function loadFirstCustomer() {
             const input = document.getElementById('simCustomerId');
             if (input.value) return;
@@ -377,7 +377,10 @@
                 .attr('font-size', 13)
                 .attr('font-weight', 'bold')
                 .text(data.referenceCustomer || 'REF');
-            const results = data.results || [];
+            const results = (data.results || []).map(d => ({
+                ...d,
+                customerName: d.customerName || d.customerId || 'Unknown customer'
+            }));
             if (!results.length) return;
             if (results.length < 3) {
                 sphereContainer.insertAdjacentHTML('afterbegin', '<div class="text-yellow-700 bg-yellow-100 rounded px-3 py-1 mb-2 text-center">Warning: Only ' + results.length + ' result(s) returned. Try adjusting your query or generating more data.</div>');
@@ -445,10 +448,11 @@
                 const g = svg.append('g')
                     .attr('cursor', 'pointer')
                     .on('mouseenter', function() {
+                        const customerLabel = d.customerName || d.customerId || 'Unknown customer';
                         tooltip
                             .attr('x', x)
                             .attr('y', y - pinR - 8)
-                            .text(`${d.customerId} (sim: ${d.overallSimilarity.toFixed(3)})`)
+                            .text(`${customerLabel} (sim: ${d.overallSimilarity.toFixed(3)})`)
                             .style('opacity', 1);
                         d3.select(this).select('path').attr('fill', nodeColorHover);
                         // inner dot highlight
@@ -460,7 +464,7 @@
                         d3.select(this).select('circle').attr('fill', 'rgba(255,255,255,0.25)');
                     })
                     .on('click', function() {
-                        document.getElementById('simCustomerId').value = d.customerId;
+                        document.getElementById('simCustomerId').value = d.customerName || d.customerId || '';
                         simForm.dispatchEvent(new Event('submit'));
                     });
                 // Pin body

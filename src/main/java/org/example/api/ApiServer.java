@@ -25,7 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <pre>
  * GET  /api/health                           - health check
  * GET  /api/categories                       - list all categories
- * GET  /api/customers                        - list customer IDs (paginated)
+ * GET  /api/customers                        - list customer names (paginated)
  * GET  /api/customers/{id}/scores/monthly    - monthly scores
  * GET  /api/customers/{id}/scores/{period}   - aggregated scores
  * GET  /api/customers/{id}/profile/{period}  - customer profile map
@@ -104,7 +104,7 @@ public class ApiServer {
         ctx.json(Map.of("categories", txnDao.allCategories()));
     }
     private void getCustomers(Context ctx) throws SQLException {
-        List<String> all = txnDao.allCustomerIds();
+        List<String> all = txnDao.allCustomerDisplayNames();
         int page = ctx.queryParamAsClass("page", Integer.class).getOrDefault(1);
         int size = ctx.queryParamAsClass("size", Integer.class).getOrDefault(50);
         int from = (page - 1) * size;
@@ -119,8 +119,8 @@ public class ApiServer {
         ));
     }
     private void getMonthlyScores(Context ctx) throws SQLException {
-        String id = ctx.pathParam("id");
-        List<CategoryScore> scores = scoring.getMonthlyScores(id);
+        String customerId = resolveCustomerId(ctx.pathParam("id"));
+        List<CategoryScore> scores = scoring.getMonthlyScores(customerId);
         // Return as a flat array for frontend
         ctx.json(scores.stream().map(cs -> Map.of(
                 "category", cs.category(),
@@ -130,9 +130,9 @@ public class ApiServer {
         )).toList());
     }
     private void getAggregatedScores(Context ctx) throws SQLException {
-        String id = ctx.pathParam("id");
+        String customerId = resolveCustomerId(ctx.pathParam("id"));
         String period = ctx.pathParam("period");
-        List<CategoryScore> scores = scoring.getAggregatedScores(id, period);
+        List<CategoryScore> scores = scoring.getAggregatedScores(customerId, period);
         // Return as a flat array for frontend
         ctx.json(scores.stream().map(cs -> Map.of(
                 "category", cs.category(),
@@ -142,27 +142,37 @@ public class ApiServer {
         )).toList());
     }
     private void getProfile(Context ctx) throws SQLException {
-        String id = ctx.pathParam("id");
+        String id = resolveCustomerId(ctx.pathParam("id"));
         String period = ctx.pathParam("period");
         CustomerProfile profile = similarity.loadProfile(id, period);
-        ctx.json(profile);
+        ctx.json(Map.of(
+                "customerName", txnDao.displayNameForCustomer(id),
+                "period", profile.period(),
+                "scores", profile.scores()
+        ));
     }
     private void findSimilar(Context ctx) throws SQLException {
-        String customerId = requireParam(ctx, "customerId");
+        String customerId = resolveCustomerId(requireParam(ctx, "customerId"));
         String period = requireParam(ctx, "period");
         List<String> categories = parseCategories(requireParam(ctx, "categories"));
         int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(10);
         List<SimilarityResult> results = similarity.findSimilar(
                 customerId, period, categories, limit);
+        Map<String, String> names = namesForResults(results);
         ctx.json(Map.of(
-                "referenceCustomer", customerId,
+                "referenceCustomer", txnDao.displayNameForCustomer(customerId),
                 "period", period,
                 "categories", categories,
-                "results", results
+                "results", results.stream().map(r -> Map.of(
+                        "customerName", names.getOrDefault(r.customerId(), r.customerId()),
+                        "overallDistance", r.overallDistance(),
+                        "overallSimilarity", r.overallSimilarity(),
+                        "categoryDistances", r.categoryDistances()
+                )).toList()
         ));
     }
     private void findSimilarButDifferent(Context ctx) throws SQLException {
-        String customerId = requireParam(ctx, "customerId");
+        String customerId = resolveCustomerId(requireParam(ctx, "customerId"));
         String period = requireParam(ctx, "period");
         List<String> simCats = parseCategories(requireParam(ctx, "similarCategories"));
         List<String> diffCats = parseCategories(requireParam(ctx, "dissimilarCategories"));
@@ -170,13 +180,19 @@ public class ApiServer {
         int limit = ctx.queryParamAsClass("limit", Integer.class).getOrDefault(10);
         List<SimilarityResult> results = similarity.findSimilarButDifferent(
                 customerId, period, simCats, diffCats, weight, limit);
+        Map<String, String> names = namesForResults(results);
         ctx.json(Map.of(
-                "referenceCustomer", customerId,
+                "referenceCustomer", txnDao.displayNameForCustomer(customerId),
                 "period", period,
                 "similarCategories", simCats,
                 "dissimilarCategories", diffCats,
                 "dissimilarWeight", weight,
-                "results", results
+                "results", results.stream().map(r -> Map.of(
+                        "customerName", names.getOrDefault(r.customerId(), r.customerId()),
+                        "overallDistance", r.overallDistance(),
+                        "overallSimilarity", r.overallSimilarity(),
+                        "categoryDistances", r.categoryDistances()
+                )).toList()
         ));
     }
     private void computeMonthly(Context ctx) throws SQLException {
@@ -308,6 +324,21 @@ public class ApiServer {
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .toList();
+    }
+
+    private String resolveCustomerId(String idOrName) throws SQLException {
+        String resolved = txnDao.resolveCustomerId(idOrName);
+        if (resolved == null) {
+            throw new IllegalArgumentException("Unknown customer: " + idOrName);
+        }
+        return resolved;
+    }
+
+    private Map<String, String> namesForResults(List<SimilarityResult> results) throws SQLException {
+        List<String> ids = results.stream()
+                .map(SimilarityResult::customerId)
+                .toList();
+        return txnDao.displayNamesForCustomers(ids);
     }
     // -- Request DTOs -----------------------------------------------------
     public static class AggregateRequest {

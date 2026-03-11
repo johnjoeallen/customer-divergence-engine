@@ -3,6 +3,7 @@ package org.example.generator;
 import com.github.f4b6a3.uuid.UuidCreator;
 import org.example.db.DatabaseManager;
 import org.example.db.TransactionDao;
+import org.example.model.CustomerName;
 import org.example.model.Transaction;
 import org.example.scoring.ScoringEngine;
 
@@ -81,6 +82,43 @@ public class FakeDataGenerator {
 
     private static final List<String> PERSONA_NAMES = List.copyOf(PERSONAS.keySet());
 
+    private static final List<String> FIRST_NAMES = List.of(
+            "Aiden", "Aisha", "Amelia", "Aria", "Ava", "Benjamin", "Caleb", "Camila", "Carter",
+            "Charlotte", "Chloe", "Daniel", "David", "Eleanor", "Elena", "Elijah", "Ella", "Emily",
+            "Emma", "Ethan", "Evelyn", "Ezra", "Gabriel", "Grace", "Hannah", "Harper", "Hazel",
+            "Henry", "Isaac", "Isabella", "Jack", "Jacob", "James", "Jasmine", "Jayden", "John",
+            "Joseph", "Joshua", "Layla", "Leah", "Leo", "Liam", "Lily", "Logan", "Lucas", "Lucy",
+            "Luna", "Madison", "Mason", "Maya", "Mia", "Mila", "Naomi", "Natalie", "Nathan",
+            "Nora", "Noah", "Nova", "Oliver", "Olivia", "Owen", "Penelope", "Riley", "Samuel",
+            "Scarlett", "Sebastian", "Sofia", "Sophia", "Stella", "Theodore", "Violet", "William",
+            "Wyatt", "Xavier", "Zoe", "Zara", "Ryan", "Roman", "Paisley", "Quinn", "Sadie",
+            "Skylar", "Autumn", "Aurora", "Brooklyn", "Everly", "Genesis", "Ivy", "Kennedy", "Kinsley"
+    );
+
+    private static final List<String> MIDDLE_NAMES = List.of(
+            "Alexander", "Alexis", "Allen", "Anne", "Anthony", "Ari", "Asher", "Avery", "Beatrice",
+            "Blake", "Blythe", "Brooks", "Caden", "Claire", "Cole", "Dean", "Drew", "Eden", "Elias",
+            "Elise", "Finn", "Florence", "Frances", "Graham", "Grant", "Gray", "Hayes", "Hope", "Irene",
+            "Jade", "Jane", "Jean", "Jules", "Kate", "Kaye", "Lane", "Lee", "Louise", "Mae", "Marie",
+            "Miles", "Noel", "Paige", "Parker", "Pearl", "Quincy", "Rae", "Reese", "Reid", "Rhys",
+            "Rose", "Sage", "Shane", "Skye", "Tate", "Taylor", "Thomas", "Vera", "Wade", "Wren",
+            "Yvette", "Zane", "Jo", "Kai", "Leigh", "Max", "Nell", "Rin", "Saul", "Tess", "Wes", "June"
+    );
+
+    private static final List<String> LAST_NAMES = List.of(
+            "Adams", "Allen", "Anderson", "Baker", "Barnes", "Bell", "Bennett", "Brooks", "Brown",
+            "Bryant", "Butler", "Campbell", "Carter", "Clark", "Coleman", "Collins", "Cook", "Cooper",
+            "Cox", "Davis", "Diaz", "Edwards", "Evans", "Fisher", "Flores", "Foster", "Garcia", "Gonzalez",
+            "Graham", "Gray", "Green", "Griffin", "Hall", "Harris", "Hayes", "Henderson", "Hernandez",
+            "Hill", "Howard", "Hughes", "Jackson", "James", "Jenkins", "Johnson", "Jones", "Kelly",
+            "Kim", "King", "Lee", "Lewis", "Long", "Lopez", "Martin", "Martinez", "Miller", "Mitchell",
+            "Moore", "Morgan", "Morris", "Murphy", "Nelson", "Nguyen", "Ortiz", "Parker", "Patel",
+            "Perez", "Perry", "Peterson", "Phillips", "Powell", "Price", "Ramirez", "Reed", "Richardson",
+            "Rivera", "Roberts", "Robinson", "Rodriguez", "Rogers", "Ross", "Russell", "Sanders",
+            "Sanchez", "Scott", "Simmons", "Smith", "Stewart", "Taylor", "Thomas", "Thompson", "Torres",
+            "Turner", "Walker", "Ward", "Watson", "White", "Williams", "Wilson", "Wood", "Wright", "Young"
+    );
+
     private final DatabaseManager db;
     private final Random random;
 
@@ -116,9 +154,18 @@ public class FakeDataGenerator {
         // Process in batches to avoid memory pressure
         int batchSize = 500;
         List<Transaction> batch = new ArrayList<>(batchSize);
+        List<CustomerName> customerBatch = new ArrayList<>(batchSize);
 
         for (int c = 0; c < customerCount; c++) {
             String customerId = UuidCreator.getTimeOrderedEpoch().toString();
+            CustomerName customerName = randomCustomerName(customerId);
+            customerBatch.add(customerName);
+
+            if (customerBatch.size() >= batchSize) {
+                dao.insertCustomerNamesBatch(customerBatch);
+                customerBatch.clear();
+            }
+
             String persona = PERSONA_NAMES.get(random.nextInt(PERSONA_NAMES.size()));
             Map<String, Double> weights = PERSONAS.get(persona);
 
@@ -154,6 +201,9 @@ public class FakeDataGenerator {
         // Flush remaining
         if (!batch.isEmpty()) {
             dao.insertBatch(batch);
+        }
+        if (!customerBatch.isEmpty()) {
+            dao.insertCustomerNamesBatch(customerBatch);
         }
 
         // Sync categories
@@ -219,6 +269,17 @@ public class FakeDataGenerator {
         };
         double amount = baseAmount * multiplier;
         return Math.max(1.00, amount); // minimum $1
+    }
+
+    private CustomerName randomCustomerName(String customerId) {
+        String first = pick(FIRST_NAMES);
+        String middle = pick(MIDDLE_NAMES);
+        String last = pick(LAST_NAMES);
+        return new CustomerName(customerId, first, middle, last);
+    }
+
+    private String pick(List<String> values) {
+        return values.get(random.nextInt(values.size()));
     }
 
     /**
