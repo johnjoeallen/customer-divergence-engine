@@ -1,5 +1,6 @@
 package org.example.generator;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import org.example.db.DatabaseManager;
 import org.example.db.TransactionDao;
 import org.example.model.Transaction;
@@ -117,7 +118,7 @@ public class FakeDataGenerator {
         List<Transaction> batch = new ArrayList<>(batchSize);
 
         for (int c = 0; c < customerCount; c++) {
-            String customerId = String.format("CUST-%06d", c + 1);
+            String customerId = UuidCreator.getTimeOrderedEpoch().toString();
             String persona = PERSONA_NAMES.get(random.nextInt(PERSONA_NAMES.size()));
             Map<String, Double> weights = PERSONAS.get(persona);
 

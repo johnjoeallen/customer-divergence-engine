@@ -68,7 +68,7 @@
             <form id="similarity-form" class="flex flex-wrap gap-4 items-end">
                 <div class="flex flex-col">
                     <label class="mb-1 font-semibold text-gray-200">Reference Customer ID</label>
-                    <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" value="CUST-000001">
+                    <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" placeholder="e.g. 019571a2-...">
                 </div>
                 <div class="flex flex-col">
                     <label class="mb-1 font-semibold text-gray-200">Period</label>
@@ -174,12 +174,14 @@
                 const elapsed = data.elapsedSeconds ?? null;
                 if (status === 'idle') {
                     stopClientTicker();
+                    setStatsPollingRate(false);
                     genStatusBar.classList.add('hidden');
                     genBtn.disabled = false;
                     genBtn.textContent = 'Generate';
                     genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
                 } else if (status === 'completed') {
                     stopClientTicker();
+                    setStatsPollingRate(false);
                     genStatusBar.classList.remove('hidden');
                     genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-green-900 text-green-200';
                     genStatusBar.textContent = `✔ Completed in ${fmtDuration(elapsed)}`;
@@ -188,6 +190,7 @@
                     genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
                 } else if (status.startsWith('error')) {
                     stopClientTicker();
+                    setStatsPollingRate(false);
                     genStatusBar.classList.remove('hidden');
                     genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-red-900 text-red-200';
                     genStatusBar.textContent = '✖ ' + status;
@@ -196,6 +199,7 @@
                     genBtn.className = 'bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded';
                 } else {
                     // running — start/update client-side ticker
+                    setStatsPollingRate(true);
                     startClientTicker(elapsed ?? 0);
                     genStatusBar.classList.remove('hidden');
                     genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-blue-900 text-blue-200';
@@ -220,7 +224,12 @@
 
         // Fire immediately on load, then every 15 seconds unconditionally
         pollStats();
-        window._statsInterval = setInterval(pollStats, 15000);
+        let _statsInterval = setInterval(pollStats, 15000);
+
+        function setStatsPollingRate(fast) {
+            clearInterval(_statsInterval);
+            _statsInterval = setInterval(pollStats, fast ? 3000 : 15000);
+        }
 
         // ── Generate form ────────────────────────────────────────────────
         document.getElementById('generate-form').addEventListener('submit', async (e) => {
@@ -249,6 +258,7 @@
                 genStatusBar.classList.remove('hidden');
                 genStatusBar.className = 'mb-4 rounded-lg px-4 py-2 text-sm font-medium bg-blue-900 text-blue-200 animate-pulse';
                 genStatusBar.textContent = '⚙ Generation started…';
+                setStatsPollingRate(true);
                 pollStats();
             }
         });
