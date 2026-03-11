@@ -8,7 +8,8 @@ mvn clean package -DskipTests
 docker-compose build --no-cache
 
 # 3. Tear down running containers and recreate them so the new image is used
-docker-compose down
+docker rm -f similarity-engine similarity-postgres 2>/dev/null || true
+docker-compose down --remove-orphans
 docker-compose up -d --force-recreate
 
 echo ""
