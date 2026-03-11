@@ -263,6 +263,11 @@ public class ApiServer {
                         ? new FakeDataGenerator(db, body.seed)
                         : new FakeDataGenerator(db);
                 gen.generate(customers, start, months, txns);
+                // Refresh pg_stat estimates so the stats endpoint shows accurate counts
+                try (var conn = db.getConnection();
+                     var stmt = conn.createStatement()) {
+                    stmt.execute("ANALYZE \"transaction\", monthly_category_score");
+                }
                 generationStatus.set("completed");
             } catch (Exception e) {
                 generationStatus.set("error: " + e.getMessage());
