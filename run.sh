@@ -6,7 +6,7 @@ if [[ "$1" == "--clean" ]]; then
   echo "Stopping containers and removing database volume..."
   docker-compose down -v
   echo "Rebuilding and starting containers in detached mode..."
-  docker-compose up --build -d
+  docker-compose build --no-cache && docker-compose up -d
 else
-  docker-compose up --build -d
+  docker-compose build --no-cache && docker-compose up -d
 fi
