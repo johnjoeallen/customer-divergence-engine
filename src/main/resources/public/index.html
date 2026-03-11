@@ -68,7 +68,10 @@
             <form id="similarity-form" class="flex flex-wrap gap-4 items-end">
                 <div class="flex flex-col">
                     <label class="mb-1 font-semibold text-gray-200">Reference Customer ID</label>
-                    <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" placeholder="e.g. 019571a2-...">
+                    <div class="flex gap-1 items-center">
+                        <input type="text" id="simCustomerId" required class="input input-bordered border-gray-600 rounded px-2 py-1 bg-gray-700 text-gray-100" placeholder="e.g. 019571a2-...">
+                        <button type="button" id="random-customer-btn" title="Pick a random customer" onclick="pickRandomCustomer()" class="bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-lg leading-none">🎲</button>
+                    </div>
                 </div>
                 <div class="flex flex-col">
                     <label class="mb-1 font-semibold text-gray-200">Period</label>
@@ -236,7 +239,7 @@
         // Pre-fill reference customer with a real ID from the DB
         async function loadFirstCustomer() {
             const input = document.getElementById('simCustomerId');
-            if (input.value) return; // already filled (e.g. clicked a node)
+            if (input.value) return;
             try {
                 const res = await fetch('/api/customers?page=1&size=1');
                 if (!res.ok) return;
@@ -245,7 +248,32 @@
                     input.value = data.customers[0];
                     input.placeholder = data.customers[0];
                 }
-            } catch (_) { /* silently ignore — field stays empty */ }
+            } catch (_) { /* silently ignore */ }
+        }
+
+        async function pickRandomCustomer() {
+            const input  = document.getElementById('simCustomerId');
+            const btn    = document.getElementById('random-customer-btn');
+            btn.textContent = '⏳';
+            btn.disabled = true;
+            try {
+                // Get total count first, then fetch one from a random page
+                const countRes = await fetch('/api/customers?page=1&size=1');
+                if (!countRes.ok) return;
+                const countData = await countRes.json();
+                const total = countData.totalCustomers || 1;
+                const randomPage = Math.floor(Math.random() * total) + 1;
+                const res = await fetch(`/api/customers?page=${randomPage}&size=1`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.customers && data.customers.length > 0) {
+                    input.value = data.customers[0];
+                }
+            } catch (_) { /* silently ignore */ }
+            finally {
+                btn.textContent = '🎲';
+                btn.disabled = false;
+            }
         }
         loadFirstCustomer();
 
