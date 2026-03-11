@@ -2,14 +2,15 @@ package org.example.db;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import org.flywaydb.core.Flyway;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 
 /**
  * Manages a PostgreSQL database with connection pooling via HikariCP.
+ * Schema migrations are handled by Flyway from classpath:db/migration.
  */
 public class DatabaseManager implements AutoCloseable {
 
@@ -71,88 +72,15 @@ public class DatabaseManager implements AutoCloseable {
     }
 
     /**
-     * Initialises the full schema (tables + indexes).
-     * Uses PostgreSQL-compatible DDL.
+     * Runs all pending Flyway migrations from classpath:db/migration.
      */
-    public void initialiseSchema() throws SQLException {
-        try (Connection conn = getConnection(); Statement stmt = conn.createStatement()) {
-
-            // ── Raw transactions ──────────────────────────────────────────
-            stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS transaction (
-                        id               BIGSERIAL      PRIMARY KEY,
-                        customer_id      VARCHAR(64)    NOT NULL,
-                        category         VARCHAR(128)   NOT NULL,
-                        amount           DECIMAL(15,2)  NOT NULL,
-                        transaction_date DATE           NOT NULL
-                    )
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_txn_customer
-                        ON transaction(customer_id)
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_txn_date
-                        ON transaction(transaction_date)
-                    """);
-
-            // ── Monthly category scores (materialised) ────────────────────
-            stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS monthly_category_score (
-                        id                  BIGSERIAL      PRIMARY KEY,
-                        customer_id         VARCHAR(64)    NOT NULL,
-                        category            VARCHAR(128)   NOT NULL,
-                        year_month          VARCHAR(7)     NOT NULL,
-                        raw_spend           DECIMAL(15,2)  NOT NULL,
-                        proportion_of_total DOUBLE PRECISION NOT NULL,
-                        score               INT            NOT NULL,
-                        UNIQUE(customer_id, category, year_month)
-                    )
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_mcs_customer
-                        ON monthly_category_score(customer_id)
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_mcs_yearmonth
-                        ON monthly_category_score(year_month)
-                    """);
-
-            // ── Aggregated scores over arbitrary time windows ─────────────
-            stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS aggregated_category_score (
-                        id                  BIGSERIAL      PRIMARY KEY,
-                        customer_id         VARCHAR(64)    NOT NULL,
-                        category            VARCHAR(128)   NOT NULL,
-                        period_label        VARCHAR(32)    NOT NULL,
-                        raw_spend           DECIMAL(15,2)  NOT NULL,
-                        proportion_of_total DOUBLE PRECISION NOT NULL,
-                        score               INT            NOT NULL,
-                        UNIQUE(customer_id, category, period_label)
-                    )
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_acs_customer
-                        ON aggregated_category_score(customer_id)
-                    """);
-
-            stmt.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_acs_period
-                        ON aggregated_category_score(period_label)
-                    """);
-
-            // ── Known categories (reference) ──────────────────────────────
-            stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS category (
-                        name VARCHAR(128) PRIMARY KEY
-                    )
-                    """);
-        }
+    public void initialiseSchema() {
+        Flyway.configure()
+                .dataSource(dataSource)
+                .locations("classpath:db/migration")
+                .baselineOnMigrate(true)
+                .load()
+                .migrate();
     }
 
     @Override
