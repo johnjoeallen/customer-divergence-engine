@@ -3,15 +3,18 @@ set -e
 # Run the app with Docker Compose
 # Usage: ./run.sh [--clean]
 
-# Always force-remove named containers first to avoid name conflicts
+# Force-remove named containers to avoid name conflicts
 docker rm -f similarity-engine similarity-postgres 2>/dev/null || true
 
 if [[ "$1" == "--clean" ]]; then
-  echo "Stopping containers and removing database volume..."
+  echo "Removing database volume..."
   docker-compose down -v --remove-orphans
-  echo "Rebuilding and starting containers in detached mode..."
-  docker-compose build --no-cache && docker-compose up -d --force-recreate
 else
   docker-compose down --remove-orphans
-  docker-compose build --no-cache && docker-compose up -d --force-recreate
 fi
+
+docker-compose up -d --force-recreate
+
+echo ""
+echo "✔ App is running at http://localhost:9096"
+echo "  → Hard-refresh (Ctrl+Shift+R) to bypass any browser cache."
