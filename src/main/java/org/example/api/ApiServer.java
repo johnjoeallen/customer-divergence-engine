@@ -204,23 +204,31 @@ public class ApiServer {
         }
         long totalTransactions = 0;
         long totalCustomers = 0;
-        long totalMonthlyScores = 0;
+        long distinctMonths = 0;
         try (var conn = db.getConnection();
              var stmt = conn.createStatement()) {
-            stmt.execute("SET LOCAL statement_timeout = '10s'");
-            try (var rs = stmt.executeQuery("SELECT COUNT(*) FROM \"transaction\"")) {
+            stmt.execute("SET LOCAL statement_timeout = '5s'");
+            // Fast estimate for transaction count — no seq scan needed
+            try (var rs = stmt.executeQuery("""
+                    SELECT n_live_tup
+                    FROM pg_stat_user_tables
+                    WHERE relname = 'transaction'
+                    """)) {
                 if (rs.next()) totalTransactions = rs.getLong(1);
             }
-            try (var rs = stmt.executeQuery("SELECT COUNT(DISTINCT customer_id) FROM \"transaction\"")) {
-                if (rs.next()) totalCustomers = rs.getLong(1);
-            }
-            try (var rs = stmt.executeQuery("SELECT COUNT(DISTINCT year_month) FROM monthly_category_score")) {
-                if (rs.next()) totalMonthlyScores = rs.getLong(1); // reusing var as month count
+            // monthly_category_score is far smaller than transaction — these are fast
+            try (var rs = stmt.executeQuery("""
+                    SELECT COUNT(DISTINCT customer_id), COUNT(DISTINCT year_month)
+                    FROM monthly_category_score
+                    """)) {
+                if (rs.next()) {
+                    totalCustomers = rs.getLong(1);
+                    distinctMonths = rs.getLong(2);
+                }
             }
         }
-        long months = totalMonthlyScores; // distinct months
-        double avgTxnsPM = (totalCustomers > 0 && months > 0)
-                ? (double) totalTransactions / (totalCustomers * months) : 0.0;
+        double avgTxnsPM = (totalCustomers > 0 && distinctMonths > 0)
+                ? (double) totalTransactions / (totalCustomers * distinctMonths) : 0.0;
 
         Map<String, Object> result = new HashMap<>();
         result.put("totalCustomers", totalCustomers);
