@@ -61,6 +61,11 @@ public class ApiServer {
                 staticFileConfig.directory = "/public";
                 staticFileConfig.location = io.javalin.http.staticfiles.Location.CLASSPATH;
                 staticFileConfig.hostedPath = "/";
+                staticFileConfig.headers = Map.of(
+                        "Cache-Control", "no-cache, no-store, must-revalidate",
+                        "Pragma", "no-cache",
+                        "Expires", "0"
+                );
             });
         });
         registerRoutes();
