@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * GET  /api/health                           - health check
  * GET  /api/categories                       - list all categories
  * GET  /api/customers                        - list customer names (paginated)
+ * GET  /api/customers/random                 - random customer name
  * GET  /api/customers/{id}/scores/monthly    - monthly scores
  * GET  /api/customers/{id}/scores/{period}   - aggregated scores
  * GET  /api/customers/{id}/profile/{period}  - customer profile map
@@ -74,6 +75,7 @@ public class ApiServer {
         app.get("/api/stats", this::getStats);
         app.get("/api/categories", this::getCategories);
         app.get("/api/customers", this::getCustomers);
+        app.get("/api/customers/random", this::getRandomCustomer);
         app.get("/api/customers/{id}/scores/monthly", this::getMonthlyScores);
         app.get("/api/customers/{id}/scores/{period}", this::getAggregatedScores);
         app.get("/api/customers/{id}/profile/{period}", this::getProfile);
@@ -104,19 +106,25 @@ public class ApiServer {
         ctx.json(Map.of("categories", txnDao.allCategories()));
     }
     private void getCustomers(Context ctx) throws SQLException {
-        List<String> all = txnDao.allCustomerDisplayNames();
         int page = ctx.queryParamAsClass("page", Integer.class).getOrDefault(1);
         int size = ctx.queryParamAsClass("size", Integer.class).getOrDefault(50);
-        int from = (page - 1) * size;
-        int to = Math.min(from + size, all.size());
-        List<String> pageItems = (from < all.size()) ? all.subList(from, to) : List.of();
+        long total = txnDao.countCustomers();
+        List<String> pageItems = txnDao.customerDisplayNamesPage(page, size);
         ctx.json(Map.of(
                 "customers", pageItems,
                 "page", page,
                 "size", size,
-                "totalCustomers", all.size(),
-                "totalPages", (int) Math.ceil((double) all.size() / size)
+                "totalCustomers", total,
+                "totalPages", size > 0 ? (int) Math.ceil((double) total / size) : 0
         ));
+    }
+    private void getRandomCustomer(Context ctx) throws SQLException {
+        String customer = txnDao.randomCustomerDisplayName();
+        if (customer == null) {
+            ctx.json(Map.of("customer", ""));
+            return;
+        }
+        ctx.json(Map.of("customer", customer));
     }
     private void getMonthlyScores(Context ctx) throws SQLException {
         String customerId = resolveCustomerId(ctx.pathParam("id"));

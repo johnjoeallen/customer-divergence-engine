@@ -261,17 +261,11 @@
             btn.textContent = '⏳';
             btn.disabled = true;
             try {
-                // Get total count first, then fetch one from a random page
-                const countRes = await fetch('/api/customers?page=1&size=1');
-                if (!countRes.ok) return;
-                const countData = await countRes.json();
-                const total = countData.totalCustomers || 1;
-                const randomPage = Math.floor(Math.random() * total) + 1;
-                const res = await fetch(`/api/customers?page=${randomPage}&size=1`);
+                const res = await fetch('/api/customers/random');
                 if (!res.ok) return;
                 const data = await res.json();
-                if (data.customers && data.customers.length > 0) {
-                    input.value = data.customers[0];
+                if (data.customer) {
+                    input.value = data.customer;
                 }
             } catch (_) { /* silently ignore */ }
             finally {

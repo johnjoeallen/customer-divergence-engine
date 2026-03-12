@@ -137,7 +137,7 @@ public class SimilarityEngine {
      * @param period               the time period (month or aggregation label)
      * @param similarCategories    categories where similarity is desired
      * @param limit                max number of results to return
-     * @return sorted list of similarity results (most dissimilar first)
+     * @return sorted list of similarity results (most similar first)
      */
     public List<SimilarityResult> findSimilar(
             String referenceCustomerId,
@@ -155,8 +155,8 @@ public class SimilarityEngine {
             results.add(compare(reference, other, similarCategories));
         }
 
-        // Sort by distance descending (most dissimilar first)
-        results.sort(Comparator.comparingDouble(SimilarityResult::overallDistance).reversed());
+        // Sort by distance ascending (most similar first)
+        results.sort(Comparator.comparingDouble(SimilarityResult::overallDistance));
         if (results.size() > limit) {
             results = results.subList(0, limit);
         }

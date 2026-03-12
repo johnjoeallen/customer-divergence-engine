@@ -144,13 +144,7 @@ public class TransactionDao {
      */
     public List<String> allCustomerDisplayNames() throws SQLException {
         List<String> names = new ArrayList<>();
-        String sql = """
-                WITH ids AS (SELECT DISTINCT customer_id FROM transaction)
-                SELECT COALESCE(c.display_name, ids.customer_id) AS display_name
-                FROM ids
-                LEFT JOIN customer c ON c.customer_id = ids.customer_id
-                ORDER BY display_name
-                """;
+        String sql = "SELECT display_name FROM customer ORDER BY display_name";
         try (Connection conn = db.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(sql)) {
@@ -162,19 +156,75 @@ public class TransactionDao {
     }
 
     /**
+     * Count distinct customers in transaction data.
+     */
+    public long countCustomers() throws SQLException {
+        String sql = "SELECT COUNT(*) FROM customer";
+        try (Connection conn = db.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) return rs.getLong(1);
+        }
+        return 0;
+    }
+
+    /**
+     * Fetch one page of customer display names directly from SQL.
+     */
+    public List<String> customerDisplayNamesPage(int page, int size) throws SQLException {
+        int safePage = Math.max(1, page);
+        int safeSize = Math.max(1, size);
+        int offset = (safePage - 1) * safeSize;
+
+        List<String> names = new ArrayList<>();
+        String sql = """
+                SELECT display_name
+                FROM customer
+                ORDER BY display_name
+                LIMIT ? OFFSET ?
+                """;
+        try (Connection conn = db.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, safeSize);
+            ps.setInt(2, offset);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    names.add(rs.getString("display_name"));
+                }
+            }
+        }
+        return names;
+    }
+
+    /**
+     * Pick one random customer display name.
+     */
+    public String randomCustomerDisplayName() throws SQLException {
+        String sql = """
+                WITH tot AS (SELECT COUNT(*) AS cnt FROM customer)
+                SELECT display_name
+                FROM customer
+                OFFSET (SELECT FLOOR(random() * cnt)::INT FROM tot)
+                LIMIT 1
+                """;
+        try (Connection conn = db.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) return rs.getString("display_name");
+        }
+        return null;
+    }
+
+    /**
      * Resolve an input value to a concrete customer ID.
      * Input may already be an ID or may be a display name.
      */
     public String resolveCustomerId(String idOrName) throws SQLException {
         String sql = """
-                WITH ids AS (SELECT DISTINCT customer_id FROM transaction),
                 matches AS (
-                    SELECT customer_id, 1 AS priority FROM ids WHERE customer_id = ?
+                    SELECT customer_id, 1 AS priority FROM customer WHERE customer_id = ?
                     UNION ALL
-                    SELECT ids.customer_id, 2 AS priority
-                    FROM ids
-                    JOIN customer c ON c.customer_id = ids.customer_id
-                    WHERE c.display_name = ?
+                    SELECT customer_id, 2 AS priority FROM customer WHERE display_name = ?
                 )
                 SELECT customer_id
                 FROM matches
